@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 
@@ -20,7 +22,36 @@ namespace Algortihms
 
 
         }
+        private List<T> MergeAndSort<T>(List<T> left, List<T> right) where T : IComparable
+        {
+            var temp = new List<T>();
 
+            while (left.Any() && right.Any())
+            {
+
+                if (left.First().CompareTo(right.First()) < 0)
+                {
+                    temp.Add(left.First());
+                    left.RemoveAt(0);
+                }
+                else
+                {
+                    temp.Add(right.First());
+                    right.RemoveAt(0);
+                }
+            }
+
+            if (left.Any())
+            {
+                temp.AddRange(left);
+            }
+            else if (right.Any())
+            {
+                temp.AddRange(right);
+            }
+
+            return temp;
+        }
         public int Fib(int num)
         {
             if (num <= 2)
@@ -80,36 +111,7 @@ namespace Algortihms
             return left;
         }
 
-        private List<T> MergeAndSort<T>(List<T> left, List<T> right) where T : IComparable
-        {
-            var temp = new List<T>();
 
-            while (left.Any() && right.Any())
-            {
-
-                if (left.First().CompareTo(right.First()) < 0)
-                {
-                    temp.Add(left.First());
-                    left.RemoveAt(0);
-                }
-                else
-                {
-                    temp.Add(right.First());
-                    right.RemoveAt(0);
-                }
-            }
-
-            if (left.Any())
-            {
-                temp.AddRange(left);
-            }
-            else if (right.Any())
-            {
-                temp.AddRange(right);
-            }
-
-            return temp;
-        }
 
         public void SelectionSort(int[] input)
         {
@@ -218,67 +220,127 @@ namespace Algortihms
             return cases.Max();
 
         }
-        static int Max(int a, int b) { return (a > b) ? a : b; }
+        static int max(int a, int b) { return (a > b) ? a : b; }
 
 
         public int KnapSackRec(int W, int[] wt, int[] val, int n)
         {
+            int i, w;
+            var K = new int[n + 1, W + 1];
 
+            // Build table K[][] in bottom up manner
+            for (i = 0; i <= n; i++)
+            {
+                for (w = 0; w <= W; w++)
+                {
+                    if (i == 0 || w == 0)
+                        K[i, w] = 0;
+                    else if (wt[i - 1] <= w)
+                        K[i, w] = max(val[i - 1] + K[i - 1, w - wt[i - 1]], K[i - 1, w]);
+                    else
+                        K[i, w] = K[i - 1, w];
+                }
+            }
 
-            if (n == 0 || W == 0)
-                return 0;
-
-
-            if (wt[n - 1] > W)
-                return KnapSackRec(W, wt, val, n - 1);
-
-            return Max(val[n - 1] + KnapSackRec(W - wt[n - 1], wt, val, n - 1),
-                KnapSackRec(W, wt, val, n - 1));
+            return K[n, W];
         }
-        public List<Item> KnapSack(int capacity, List<Item> items, string knapSack, Dictionary<string, List<Item>> cache, int recCounter = 0)
+        public ICollection<Item> KnapSack(int capacity, List<Item> items, StringBuilder knapSack, int recCounter = 0)
         {
             var capacityNoAdd = capacity;
 
             if (items.Count - recCounter == 0 || capacity == 0)
             {
                 var knapSackList = new List<Item>();
-                var indices = knapSack.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (var index in indices)
-                {
-                    knapSackList.Add(items[int.Parse(index)]);
-                }
+
+                var indices = knapSack.ToString().Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                knapSackList.AddRange(indices.Select(index => items[int.Parse(index)]));
                 return knapSackList;
             }
 
 
             if (items[items.Count - (1 + recCounter)].Weight > capacity)
-                return KnapSack(capacity, items, knapSack, cache, recCounter + 1);
+                return KnapSack(capacity, items, knapSack, recCounter + 1);
 
 
-            var knapSackNoAdd = knapSack;
-            knapSack += items.Count - (1 + recCounter) + ",";
+            var knapSackNoAdd = new StringBuilder();
+            knapSackNoAdd.Append(knapSack.ToString(0, knapSack.Length));
+            knapSack.Append(items.Count - (1 + recCounter) + ",");
             capacity -= items[items.Count - (1 + recCounter)].Weight;
 
-
-
-
-
-            var maxSackLeft = KnapSack(capacity, items, knapSack, cache, recCounter + 1);
-            var maxSackRight = KnapSack(capacityNoAdd, items, knapSackNoAdd, cache, recCounter + 1);
-            var key = Hash(maxSackLeft, maxSackRight);
-            var key2 = Hash(maxSackRight, maxSackLeft);
-            if (key == key2)
-                return maxSackLeft;
-
-            if (cache.ContainsKey(key))
-                return cache[key];
+            var maxSackLeft = KnapSack(capacity, items, knapSack, recCounter + 1);
+            var maxSackRight = KnapSack(capacityNoAdd, items, knapSackNoAdd, recCounter + 1);
 
             var maxSack = MaxKnapSack(maxSackLeft, maxSackRight);
-            cache.Add(key, maxSack);
-            cache.Add(key2, maxSack);
-
             return maxSack;
 
+        }
+        public ICollection<Item> KnapSackList(int capacity, Stack<Item> items, List<Item> knapSack)
+        {
+
+            if (items.Count == 0 || capacity == 0)
+                return knapSack;
+            do
+            {
+                if (items.Count == 0)
+                    return knapSack;
+                if (items.Peek().Weight > capacity)
+                    items.Pop();
+                else
+                    break;
+            } while (true);
+
+
+            var knapSackNoAdd = new List<Item>(knapSack);
+
+
+
+            var capacityNoAdd = capacity;
+            capacity -= items.Peek().Weight;
+            knapSack.Add(items.Pop());
+
+
+            var newItems = new Stack<Item>(items);
+            ICollection<Item> maxLeft;
+            ICollection<Item> maxRight;
+            ICollection<Item> maxSack;
+            //if (newItems.Count != 0 || items.Count != 0)
+            //{
+            //    var lowerBoundNoAdd = KnapSackGreedy(capacityNoAdd, newItems);
+            //    var upperBoundNoAdd = KnapSackPowerderd(capacityNoAdd, newItems);
+
+            //    var lowerBound = KnapSackGreedy(capacity, items);
+            //    var upperBound = KnapSackPowerderd(capacity, items);
+            //    if (upperBound == lowerBound && upperBound >= upperBoundNoAdd)
+            //        return KnapSackGreedyList(capacity, items);
+            //    if (upperBound == lowerBound && upperBoundNoAdd == lowerBoundNoAdd)
+            //    {
+            //        maxLeft = KnapSackGreedyList(capacity, items);
+            //        maxRight = KnapSackGreedyList(capacityNoAdd, newItems);
+            //        maxSack = MaxKnapSack(maxLeft, maxRight);
+            //        return maxSack;
+            //    }
+
+            //    if (upperBound == lowerBound)
+            //    {
+            //        maxLeft = KnapSackGreedyList(capacity, items);
+            //        maxRight = KnapSackList(capacityNoAdd, newItems, knapSackNoAdd);
+            //        maxSack = MaxKnapSack(maxLeft, maxRight);
+            //        return maxSack;
+            //    }
+            //    if (upperBoundNoAdd == lowerBoundNoAdd)
+            //    {
+            //        maxLeft = KnapSackList(capacity, items, knapSack);
+            //        maxRight = KnapSackGreedyList(capacityNoAdd, newItems);
+            //        maxSack = MaxKnapSack(maxLeft, maxRight);
+            //        return maxSack;
+            //    }
+            //}
+
+
+            maxLeft = KnapSackList(capacity, items, knapSack);
+            maxRight = KnapSackList(capacityNoAdd, newItems, knapSackNoAdd);
+            maxSack = MaxKnapSack(maxLeft, maxRight);
+            return maxSack;
         }
 
 
@@ -296,41 +358,121 @@ namespace Algortihms
             return sb.ToString();
         }
 
-        private List<Item> MaxKnapSack(List<Item> maxSackLeft, List<Item> maxSackRight)
+        private ICollection<Item> MaxKnapSack(ICollection<Item> maxSackLeft, ICollection<Item> maxSackRight)
         {
 
-            if (!maxSackLeft.Any() && !maxSackRight.Any())
+            if (maxSackLeft.Count == 0 && maxSackRight.Count == 0)
                 return maxSackLeft;
-            if (!maxSackLeft.Any())
+            if (maxSackLeft.Count == 0)
                 return maxSackRight;
-            if (!maxSackRight.Any())
+            if (maxSackRight.Count == 0)
                 return maxSackLeft;
 
             return GetMax(maxSackLeft, maxSackRight);
         }
 
-        private static List<Item> GetMax(List<Item> maxSackRight, List<Item> maxSackLeft)
+        private static ICollection<Item> GetMax(IEnumerable<Item> maxSackRight, IEnumerable<Item> maxSackLeft)
         {
-            var maxSack = maxSackRight.Sum(i => i.Value) > maxSackLeft.Sum(i => i.Value) ? maxSackRight : maxSackLeft;
+            var sackRight = maxSackRight as Item[] ?? maxSackRight.ToArray();
+            var sackLeft = maxSackLeft as Item[] ?? maxSackLeft.ToArray();
+            var maxSack = sackRight.Sum(i => i.Value) > sackLeft.Sum(i => i.Value) ? sackRight : sackLeft;
             return maxSack;
         }
 
-        public List<Item> KnapSackGeedy(int capacity, List<Item> items, List<Item> knapSack)
+        public int KnapSackGreedy(int capacity, Stack<Item> items)
         {
-            items = items.OrderByDescending(i => i.WeightValueRatio).ToList();
+            var itemsList = items.OrderByDescending(i => i.WeightValueRatio).ToList();
+            var value = 0;
             for (var i = 0; i < items.Count; i++)
             {
-                var item = items[i];
+                var item = itemsList[i];
+                if (item.Weight <= capacity)
+                {
+                    value += item.Value;
+                    capacity -= item.Weight;
+                    if (capacity == 0)
+                        return value;
+
+                }
+            }
+
+            return value;
+        }
+        public int KnapSackPowerderd(int capacity, Stack<Item> items, bool outsideRun = false)
+        {
+            if (outsideRun)
+            {
+                do
+                {
+                    if (items.Count == 0)
+                        break;
+                    if (items.Peek().Weight > capacity)
+                        items.Pop();
+                    else
+                        break;
+                } while (true);
+            }
+
+            var itemsList = items.OrderByDescending(i => i.WeightValueRatio).ToList();
+            var value = 0;
+            var looper = true;
+            Item fractionItem;
+            if (outsideRun)
+            {
+                var test = 0;
+            }
+            do
+            {
+                var item = itemsList.First();
+
+                if (item.Weight <= capacity)
+                {
+                    itemsList.RemoveAt(0);
+                    value += item.Value;
+                    capacity -= item.Weight;
+                    if (capacity == 0)
+                        return value;
+                    if (itemsList.Count == 0)
+                    {
+                        looper = false;
+
+                    }
+                }
+                else
+                {
+                    looper = false;
+
+                }
+
+                fractionItem = item;
+            } while (looper && itemsList.Count != 0);
+
+            var valueFraction = (int)Math.Ceiling((double)fractionItem.Value / fractionItem.Weight);
+            value += (valueFraction * capacity);
+
+
+
+            return value;
+        }
+
+        public List<Item> KnapSackGreedyList(int capacity, Stack<Item> items)
+        {
+            var itemsList = items.OrderByDescending(i => i.WeightValueRatio).ToList();
+            var knapSack = new List<Item>();
+
+            for (var i = 0; i < items.Count; i++)
+            {
+                var item = itemsList[i];
                 if (item.Weight <= capacity)
                 {
                     knapSack.Add(item);
                     capacity -= item.Weight;
-                    items.RemoveAt(i);
                     if (capacity == 0)
                         return knapSack;
 
                 }
             }
+
             return knapSack;
         }
         public int KnapSack(int capacity, int[] weight, int[] value, int itemsCount)
@@ -375,7 +517,7 @@ namespace Algortihms
         }
     }
 
-    public class Item
+    public struct Item
     {
         public int Weight { get; set; }
         public int Value { get; set; }
